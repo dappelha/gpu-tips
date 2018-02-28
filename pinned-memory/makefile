@@ -1,4 +1,6 @@
-ifeq 'pgi' 'pgi'
+comp=pgi
+
+ifeq '${comp}' 'pgi'
 	# PGI compiler
 	F90=pgf90
 	CC=pgcc
@@ -36,5 +38,5 @@ prof: test
 
 
 clean:
-	rm -f test *.o *.lst *.mod ../nvtx/*.o
+	rm -f xlftest pgitest *.o *.lst *.mod ../nvtx/*.o
 
