@@ -4,7 +4,7 @@ module basicmovement
   use nvtx_mod
   use omp_lib
 
-  integer :: samples =20
+  integer :: samples =10
   integer, parameter :: gigabyte = 1024*1024*1024/8
   integer :: N = 1*gigabyte
   character(len=30) :: str
@@ -26,14 +26,21 @@ contains
     real(kind=8) :: t1, t2, T  
     integer :: ierr, i
 #if defined(__ibmxl__)
+
     str = "omp device allocation"
     call nvtxStartRange(str)
-    t1 = omp_get_wtime()
-    !$omp target enter data map(alloc:h_dummy)
-    ierr = cudaDeviceSynchronize()
-    t2 = omp_get_wtime()
+    T=0
+    do i = 1, samples
+       !$omp target exit data map(delete:h_dummy)
+       ierr = cudaDeviceSynchronize()
+       t1 = omp_get_wtime()
+       !$omp target enter data map(alloc:h_dummy)
+       ierr = cudaDeviceSynchronize()
+       t2 = omp_get_wtime()
+       T = T + (t2-t1)
+    enddo
     call nvtxEndRange
-    write(*,fmt) str, t2-t1
+    write(*,fmt) str, T/samples
   
     ! OpenMP memcopy
     str = "omp HtoD"
@@ -69,13 +76,18 @@ contains
 
     str = "acc device allocation"
     call nvtxStartRange(str)
-    t1 = omp_get_wtime()
-    !$acc enter data create(h_dummy)
-    ierr = cudaDeviceSynchronize()
-    t2 = omp_get_wtime()
+    T=0
+    do i = 1, samples
+       !$acc exit data delete(h_dummy)
+       ierr = cudaDeviceSynchronize()
+       t1 = omp_get_wtime()
+       !$acc enter data create(h_dummy)
+       ierr = cudaDeviceSynchronize()
+       t2 = omp_get_wtime()
+       T = T + (t2-t1)
+    enddo
     call nvtxEndRange
-    write(*,fmt) str, t2-t1
-
+    write(*,fmt) str, T/samples
   
     ! OpenACC memcopy
     str = "acc HtoD"
@@ -168,7 +180,7 @@ program main
 
   real(kind=8) :: t1, t2, T, mem
 
-  integer :: ierr
+  integer :: ierr, i
 
 
   
@@ -184,32 +196,49 @@ program main
 
   write(*,*) "Allocation Timings:"
 
+
   call nvtxStartRange("regular host allocation")
-  t1 = omp_get_wtime()
-  allocate( A(N) )
-  t2 = omp_get_wtime()
+  T = 0
+  do i = 1, samples
+     if (allocated ( A ) ) deallocate( A )
+     t1 = omp_get_wtime()
+     allocate( A(N) )
+     t2 = omp_get_wtime()
+     T = T + (t2-t1)
+  enddo
   call nvtxEndRange
-  write(*,fmt) "regular host allocation: ", t2-t1 
+  write(*,fmt) "regular host allocation: ", T/samples
 
 
 
   call nvtxStartRange("pinned host allocation")
-  t1 = omp_get_wtime()
-  allocate( p_A(N) )
-  t2 = omp_get_wtime()
+  T=0
+  do i = 1, samples
+     if (allocated ( p_A ) ) deallocate( p_A )
+     t1 = omp_get_wtime()
+     allocate( p_A(N) )
+     t2 = omp_get_wtime()
+     T = T + (t2-t1)
+  enddo
   call nvtxEndRange
-  write(*,fmt) "pinned host allocation: ", t2-t1 
+  write(*,fmt) "pinned host allocation: ", T/samples
 
 
 
   str = "cuda device allocation"
   call nvtxStartRange(str)
-  t1 = omp_get_wtime()
-  allocate( d_A(N) )
-  ierr = cudaDeviceSynchronize()
-  t2 = omp_get_wtime()
+  T = 0
+  do i = 1, samples
+     if (allocated ( d_A ) ) deallocate( d_A )
+     ierr = cudaDeviceSynchronize()
+     t1 = omp_get_wtime()
+     allocate( d_A(N) )
+     ierr = cudaDeviceSynchronize()
+     t2 = omp_get_wtime()
+     T = T + (t2-t1)
+  enddo
   call nvtxEndRange  
-  write(*,fmt) str, t2-t1
+  write(*,fmt) str, T/samples
 
 
   ! REGULAR PAGEABLE MEMORY:

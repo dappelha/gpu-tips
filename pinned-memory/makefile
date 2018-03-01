@@ -6,7 +6,8 @@ ifeq '${comp}' 'pgi'
 	CC=pgcc
 	CUDAFLAGS= -Mcuda=cc60,nordc,maxregcount:64,ptxinfo -fast -Mfprelaxed -L/usr/local/cuda/lib64 -lnvToolsExt
 	#CUDAFLAGS= -Mcuda=cc60,nordc,maxregcount:48,ptxinfo,loadcache:L1 -fast -Mfprelaxed
-	F90FLAGS=-O3 -mp -acc
+	F90FLAGS=-O3 -mp 
+	CUDAFLAGS+= -acc -ta=tesla:pinned
 else
 	# xlcuf compiler
 	F90=xlf_r
@@ -38,5 +39,5 @@ prof: test
 
 
 clean:
-	rm -f xlftest pgitest *.o *.lst *.mod ../nvtx/*.o
+	rm -f ${comp}test *.o *.lst *.mod ../nvtx/*.o
 
