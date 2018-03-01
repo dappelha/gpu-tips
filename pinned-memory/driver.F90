@@ -224,7 +224,6 @@ program main
   write(*,fmt) "pinned host allocation: ", T/samples
 
 
-
   str = "cuda device allocation"
   call nvtxStartRange(str)
   T = 0
@@ -261,7 +260,8 @@ program main
   call explicitCUDA_HtoD(d_A,p_A,mem)
 
 
-
+  deallocate(d_A)
+  ierr=cudaDeviceSynchronize()
 
 
   ! REGULAR PAGEABLE MEMORY:
@@ -273,11 +273,29 @@ program main
   ! openacc way:
   call acc_HtoD(A,mem)
   
+  str = "cuda device allocation"
+  call nvtxStartRange(str)
+  T = 0
+  do i = 1, samples
+     if (allocated ( d_A ) ) deallocate( d_A )
+     ierr = cudaDeviceSynchronize()
+     t1 = omp_get_wtime()
+     allocate( d_A(N) )
+     ierr = cudaDeviceSynchronize()
+     t2 = omp_get_wtime()
+     T = T + (t2-t1)
+  enddo
+  call nvtxEndRange  
+  write(*,fmt) str, T/samples
+
   ! Implicit CUDA way
   call implicitCUDA_HtoD(d_A,A,mem)
   
   ! Another CUDA way
   call explicitCUDA_HtoD(d_A,A,mem)
+
+  deallocate(d_A)
+  ierr=cudaDeviceSynchronize()
 
 
   ! USING PINNED MEMORY
@@ -287,16 +305,31 @@ program main
   call omp_HtoD(p_A,mem)
 
   ! openacc way:
-  call acc_HtoD(A,mem)
+  call acc_HtoD(p_A,mem)
   
+  str = "cuda device allocation"
+  call nvtxStartRange(str)
+  T = 0
+  do i = 1, samples
+     if (allocated ( d_A ) ) deallocate( d_A )
+     ierr = cudaDeviceSynchronize()
+     t1 = omp_get_wtime()
+     allocate( d_A(N) )
+     ierr = cudaDeviceSynchronize()
+     t2 = omp_get_wtime()
+     T = T + (t2-t1)
+  enddo
+  call nvtxEndRange  
+  write(*,fmt) str, T/samples
+
   ! Implicit CUDA way
   call implicitCUDA_HtoD(d_A,p_A,mem)
 
   ! Another CUDA way
   call explicitCUDA_HtoD(d_A,p_A,mem)
 
-
-
+  deallocate(d_A)
+  ierr=cudaDeviceSynchronize()
 
   print*, "completed"
 

@@ -7,7 +7,8 @@ ifeq '${comp}' 'pgi'
 	CUDAFLAGS= -Mcuda=cc60,nordc,maxregcount:64,ptxinfo -fast -Mfprelaxed -L/usr/local/cuda/lib64 -lnvToolsExt
 	#CUDAFLAGS= -Mcuda=cc60,nordc,maxregcount:48,ptxinfo,loadcache:L1 -fast -Mfprelaxed
 	F90FLAGS=-O3 -mp 
-	CUDAFLAGS+= -acc -ta=tesla:pinned
+	CUDAFLAGS+= -acc
+	LINKFLAGS = -ta=tesla:pinned
 else
 	# xlcuf compiler
 	F90=xlf_r
@@ -22,7 +23,7 @@ endif
 
 
 build: driver.o nvtx_mod.o
-	${F90} -o ${comp}test driver.o ../nvtx/nvtx_mod.o ${F90FLAGS} ${CUDAFLAGS} 
+	${F90} -o ${comp}test driver.o ../nvtx/nvtx_mod.o ${F90FLAGS} ${CUDAFLAGS} ${LINKFLAGS}
 
 
 driver.o: driver.F90 nvtx_mod.o
