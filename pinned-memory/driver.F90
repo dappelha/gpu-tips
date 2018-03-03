@@ -6,7 +6,7 @@ module basicmovement
 
   integer :: samples =10
   integer, parameter :: gigabyte = 1024*1024*1024/8
-  integer :: N = 1*gigabyte
+  integer :: N = 8*gigabyte
   character(len=30) :: str
   CHARACTER(LEN=*), PARAMETER :: fmt = "(2X, A, T30, G8.3, T40, F8.3 )"
   integer :: color
@@ -78,8 +78,10 @@ contains
     call nvtxStartRange(str)
     T=0
     do i = 1, samples
-       !$acc exit data delete(h_dummy)
-       ierr = cudaDeviceSynchronize()
+       if(i .gt. 1) then
+          !$acc exit data delete(h_dummy)
+          ierr = cudaDeviceSynchronize()
+       endif
        t1 = omp_get_wtime()
        !$acc enter data create(h_dummy)
        ierr = cudaDeviceSynchronize()

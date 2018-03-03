@@ -32,13 +32,6 @@ driver.o: driver.F90 nvtx_mod.o
 nvtx_mod.o: ../nvtx/nvtx_mod.F90
 	${F90} -c -o ../nvtx/nvtx_mod.o ../nvtx/nvtx_mod.F90 ${F90FLAGS} ${CUDAFLAGS}
 
-run: test
-	./test
-
-prof: test
-	nvprof ./test
-
-
 clean:
 	rm -f ${comp}test *.o *.lst *.mod ../nvtx/*.o
 
