@@ -1,4 +1,4 @@
-comp=pgi
+comp=xlf
 
 ifeq '${comp}' 'pgi'
 	# PGI compiler
@@ -17,7 +17,7 @@ else
 	CUDAFLAGS= -qcuda -qtgtarch=sm_70 -W@,"-v,--maxrregcount=64" -lnvToolsExt
 	CUDAFLAGS+= -qcheck -qsigtrap -g1
 	#F90FLAGS=-O3 -qhot=novector -qsimd=auto -qarch=pwr8 -qtune=pwr8 -qsmp=omp -qoffload -lessl
-	F90FLAGS=-O3 -qhot=novector -qsimd=auto -qarch=pwr9 -qtune=pwr9 -qsmp=omp -qoffload -lomp
+	F90FLAGS=-O3 -qhot=novector -qsimd=auto -qarch=pwr9 -qtune=pwr9 -qsmp=omp -qoffload #-lomp
 endif
 
 
