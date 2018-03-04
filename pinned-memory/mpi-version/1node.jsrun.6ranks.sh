@@ -43,17 +43,29 @@ echo "used cores per socket = $cores_per_socket"
 export RANKS_PER_SOCKET=$ranks_per_socket
 export RANKS_PER_GPU=$ranks_per_gpu
 
-# needed for OpenACC to actually delete memory when requested.
-export PGI_ACC_MEM_MANAGE=0
+# CHECK AFFINITY:
 
 # jsrun --smpiargs="-mxm" --nrs ${num_sockets}  --tasks_per_rs ${ranks_per_socket} --cpu_per_rs ${cores_per_socket} \
 #  --gpu_per_rs ${gpus_per_socket} --bind=proportional-packed:${cores_per_rank} -d plane:${ranks_per_socket}  \
 #  ./device-bind.sh ./print-affinity.sh 
 
 
+# PGI RUN:
+
+# needed for OpenACC to actually delete memory when requested.
+  
+  export PGI_ACC_MEM_MANAGE=0
+
   jsrun -e prepended --smpiargs="-mxm" --nrs ${num_sockets}  --tasks_per_rs ${ranks_per_socket} --cpu_per_rs ${cores_per_socket} \
    --gpu_per_rs ${gpus_per_socket} --bind=proportional-packed:${cores_per_rank} -d plane:${ranks_per_socket}  \
    ./device-bind.sh ./pgitest
+
+# XLF RUN:
+
+  #jsrun -e prepended --smpiargs="-mxm" --nrs ${num_sockets}  --tasks_per_rs ${ranks_per_socket} --cpu_per_rs ${cores_per_socket} \
+  # --gpu_per_rs ${gpus_per_socket} --bind=proportional-packed:${cores_per_rank} -d plane:${ranks_per_socket}  \
+  # ./device-bind.sh ./xlftest
+
 
 
 
