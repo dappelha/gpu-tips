@@ -16,21 +16,23 @@ echo "gpus used per socket = $gpus_per_socket"
 echo "ranks_per_socket = $ranks_per_socket"
 echo "cores_per_rank = $cores_per_rank"
 echo "used cores per socket = $cores_per_socket"
+
+let transfersize=2*1024
 #--------------------------------------
 cat >batch.job <<EOF
 #BSUB -o %J.out
 #BSUB -e %J.err
 #BSUB -nnodes ${nodes}
 #BSUB -alloc_flags gpumps
-##BSUB -alloc_flags smt4
+#BSUB -alloc_flags smt4
 #BSUB -P VEN201
 #BSUB -q batch
-#BSUB -W 20
+#BSUB -W 5
 #---------------------------------------
 
 ulimit -s 10240
 
-#export OMP_NUM_THREADS=$threads_per_rank
+export OMP_NUM_THREADS=$threads_per_rank
 #export CUDA_LAUNCH_BLOCKING=0
 
 echo 'starting jsrun with'
@@ -45,26 +47,25 @@ export RANKS_PER_GPU=$ranks_per_gpu
 
 # CHECK AFFINITY:
 
-# jsrun --smpiargs="-mxm" --nrs ${num_sockets}  --tasks_per_rs ${ranks_per_socket} --cpu_per_rs ${cores_per_socket} \
-#  --gpu_per_rs ${gpus_per_socket} --bind=proportional-packed:${cores_per_rank} -d plane:${ranks_per_socket}  \
-#  ./device-bind.sh ./print-affinity.sh 
+ jsrun --smpiargs="-mxm" --nrs ${num_sockets}  --tasks_per_rs ${ranks_per_socket} --cpu_per_rs ${cores_per_socket} \
+  --gpu_per_rs ${gpus_per_socket} --bind=proportional-packed:${cores_per_rank} -d plane:${ranks_per_socket}  \
+  ./device-bind.sh ./print-affinity.sh 
 
 
 # PGI RUN:
 
-# needed for OpenACC to actually delete memory when requested.
-  
-  export PGI_ACC_MEM_MANAGE=0
-
-  jsrun -e prepended --smpiargs="-mxm" --nrs ${num_sockets}  --tasks_per_rs ${ranks_per_socket} --cpu_per_rs ${cores_per_socket} \
-   --gpu_per_rs ${gpus_per_socket} --bind=proportional-packed:${cores_per_rank} -d plane:${ranks_per_socket}  \
-   ./device-bind.sh ./pgitest
-
-# XLF RUN:
+# needed for OpenACC to actually delete memory when requested.  
+  #export PGI_ACC_MEM_MANAGE=0
 
   #jsrun -e prepended --smpiargs="-mxm" --nrs ${num_sockets}  --tasks_per_rs ${ranks_per_socket} --cpu_per_rs ${cores_per_socket} \
   # --gpu_per_rs ${gpus_per_socket} --bind=proportional-packed:${cores_per_rank} -d plane:${ranks_per_socket}  \
-  # ./device-bind.sh ./xlftest
+  # ./device-bind.sh ./pgitest $transfersize
+
+# XLF RUN:
+
+#  jsrun -e prepended --smpiargs="-mxm" --nrs ${num_sockets}  --tasks_per_rs ${ranks_per_socket} --cpu_per_rs ${cores_per_socket} \
+#   --gpu_per_rs ${gpus_per_socket} --bind=proportional-packed:${cores_per_rank} -d plane:${ranks_per_socket}  \
+#   ./device-bind.sh ./xlftest ${transfersize}
 
 
 
