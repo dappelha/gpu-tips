@@ -8,9 +8,11 @@ module datastructures
      integer :: Nnodes
      real(kind=8), allocatable, pinned :: x(:)
      real(kind=8), allocatable, pinned :: y(:)
+     real(kind=8), allocatable :: old(:) ! not used by kernel on the GPU
+     real(kind=8) :: volume
      !real(kind=8), allocatable, pinned :: val(:)
      integer, allocatable, pinned :: val(:)
-     real(kind=8) :: volume
+
   end type element_type
 
   ! need to create a duplicate version for the GPU where
@@ -64,6 +66,7 @@ contains
 
     allocate(element(id)% x(Nnodes) )
     allocate(element(id)% y(Nnodes) )
+    allocate(element(id)% old(Nnodes) )
     allocate(element(id)% val(Nnodes) )
 
     element(id)% x = x
@@ -93,19 +96,15 @@ contains
 
     element(id)%Nnodes = Nnodes
 
+    ! allocate
     allocate(element(id)% x(Nnodes) )
     allocate(element(id)% y(Nnodes) )
     allocate(element(id)% val(Nnodes) )
 
-    ! this only copies the last id
-    element(id)% x = x
-    element(id)% y = y
-    element(id)% val = val
-
-    ! this works with xl
-    !element(id)% x(:) = x(:)
-    !element(id)% y(:) = y(:)
-    !element(id)% val(:) = val(:)
+    ! populate
+    element(id)% x(:) = x(:)
+    element(id)% y(:) = y(:)
+    element(id)% val(:) = val(:)
 
 
     return
@@ -239,10 +238,29 @@ program main
   real(kind=8) :: volume
   real(kind=8), allocatable :: x(:),y(:)
   integer, allocatable  :: val(:)
+  character(len=255) :: char_elements, char_nodes
+
+  call get_command_argument(1,char_elements)
+  if(len_trim(char_elements)==0) then
+     write(0,*) "missing command line arg, ./a.out Nelements Nnodes"
+     char_elements="10000"
+  endif
+
+  call get_command_argument(2,char_nodes)
+  if(len_trim(char_nodes)==0) then
+     write(0,*) "missing command line arg, ./a.out Nelements Nnodes"
+     char_nodes="8"
+  endif
 
   ! create some dummy data for this example. 
-  Nelements = 5000
-  NnodesMax = 40
+  ! Nelements = 100000
+  ! NnodesMax = 4
+
+  ! string to integer conversion
+  read(char_elements,"(I16)") Nelements
+  read(char_nodes,"(I16)") NnodesMax
+
+  print *, "running example with ", Nelements, "elements and ", NnodesMax, "nodes"
 
   ! regular host initialization of elements
   allocate( element(Nelements) )
@@ -266,13 +284,25 @@ program main
      call nvtxStartRange("const_and_set_host_elements",8)
      call construct_and_set_elements(element,id,Nnodes, volume, x, y, val)
      call nvtxEndRange
+  enddo
+  
 
-     ! now we want to set the GPU up with this data:
+  ! now suppose we had instead went directly to setting  up the GPU with this data:
 
+  ! STYLE 1
+  ! niave and slow approach to replicating on the GPU:
+  ! allocate and set in same host routine:
 
-     ! STYLE 1
-     ! niave and slow approach to replicating on the GPU:
-     ! allocate and set in same host routine:
+  call nvtxStartRange("alt Style 1",1)
+  do id=1,Nelements
+     do i=1,NnodesMax
+        x(i)   = id+i
+        y(i)   = id+i
+        val(i) = id+i
+     enddo
+     volume = 5
+     Nnodes = NnodesMax
+
      call nvtxStartRange("Style 1",1)
      call construct_and_set_GPUelements(GPUelement,id,Nnodes,Nelements, x, y, val)
      call nvtxEndRange
@@ -281,6 +311,9 @@ program main
 
   istat = cudaDeviceSynchronize()
      
+  call nvtxEndRange
+
+
   call check_correctness(GPUelement, element, Nelements)
 
 
@@ -299,9 +332,11 @@ program main
   call nvtxStartRange("Style 2",2)
 
   ! allocate GPUelement%members
+  call nvtxStartRange("allocate GPUelement%members")
   do id=1, Nelements
      call construct_GPUelements(GPUelement,id,Nnodes)
   enddo
+  call nvtxEndRange
 
   ! still need to poplulate (set) the values from the host version of the data structure:
   do id=1, Nelements
@@ -309,7 +344,7 @@ program main
      GPUelement(id)%x = element(id)%x
      GPUelement(id)%y = element(id)%y
      GPUelement(id)%val = element(id)%val
-     !call set_GPUelements(GPUelements, elements, id)
+     !call set_GPUelements(GPUelements, elements, id) ! not implemented
   enddo
 
   istat = cudaDeviceSynchronize()
@@ -332,10 +367,6 @@ program main
   istat = cudaHostRegister(C_LOC(element), sizeof(element), cudaHostRegisterMapped)
 
   call nvtxStartRange("Style 3",3)
-
-  ! allocate d_GPUelement
-  ! d_GPUelement -- a device valid variable which points to the device allocations of GPUelement
-  allocate( d_GPUelement(Nelements) )
 
   ! try later: !!!!!$omp parallel do private(id, Nnodes)
   do id=1, Nelements
@@ -361,12 +392,19 @@ program main
 
   call nvtxEndRange
 
+  ! this part is really a separate topic
+
   ! Really want something that is accessible on the device, so need to move base structure to device:
+  ! allocate d_GPUelement
+  ! d_GPUelement -- a device valid variable which points to the device allocations of GPUelement
+  allocate( d_GPUelement(Nelements) )
+
   ! similarly with d_GPUelement, we need to transfer the device memory addresses held in GPUelement
   #if defined(__ibmxl__)
      istat=cudaMemcpyAsync(d_GPUelement, GPUelement, size(GPUelement), 0)
   #else
-     istat=cudaMemcpyAsync(C_DEVLOC(d_GPUelement), C_LOC(GPUelement), sizeof(GPUelement), 0)
+     istat=cudaMemcpyAsync(d_GPUelement, GPUelement, size(GPUelement), 0)
+     !istat=cudaMemcpyAsync(C_DEVLOC(d_GPUelement), C_LOC(GPUelement), sizeof(GPUelement), 0)
   #endif
 
   istat = cudaDeviceSynchronize()
@@ -394,10 +432,12 @@ program main
   call nvtxStartRange("Style 5",5)
 
   ! construct (allocate) the space on the GPU:
+  call nvtxStartRange("allocate GPUelement%members")
   do id=1,Nelements
      call construct_GPUelements(GPUelement,id,Nnodes)
   enddo
-  
+  call nvtxEndRange
+
   ! Now we need to be able to refer to the data structure from within a device kernel,
   ! so we need the following device valid structures:
   
@@ -431,9 +471,10 @@ program main
 
   call set_elements_kernel<<<blocks,threads>>>(d_GPUelement,d_element,Nelements)
 
+  istat = cudaDeviceSynchronize()
+
   call nvtxEndRange
 
-  istat = cudaDeviceSynchronize()
 
   call check_correctness(GPUelement, element, Nelements)
 
