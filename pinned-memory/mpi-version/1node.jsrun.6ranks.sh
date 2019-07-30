@@ -23,10 +23,7 @@ cat >batch.job <<EOF
 #BSUB -o %J.out
 #BSUB -e %J.err
 #BSUB -nnodes ${nodes}
-#BSUB -alloc_flags gpumps
 #BSUB -alloc_flags smt4
-#BSUB -P VEN201
-#BSUB -q batch
 #BSUB -W 5
 #---------------------------------------
 
@@ -47,9 +44,9 @@ export RANKS_PER_GPU=$ranks_per_gpu
 
 # CHECK AFFINITY:
 
- jsrun --smpiargs="-mxm" --nrs ${num_sockets}  --tasks_per_rs ${ranks_per_socket} --cpu_per_rs ${cores_per_socket} \
-  --gpu_per_rs ${gpus_per_socket} --bind=proportional-packed:${cores_per_rank} -d plane:${ranks_per_socket}  \
-  ./device-bind.sh ./print-affinity.sh 
+# jsrun --smpiargs="-mxm" --nrs ${num_sockets}  --tasks_per_rs ${ranks_per_socket} --cpu_per_rs ${cores_per_socket} \
+#  --gpu_per_rs ${gpus_per_socket} --bind=proportional-packed:${cores_per_rank} -d plane:${ranks_per_socket}  \
+#  ./device-bind.sh ./print-affinity.sh 
 
 
 # PGI RUN:
@@ -63,9 +60,10 @@ export RANKS_PER_GPU=$ranks_per_gpu
 
 # XLF RUN:
 
-#  jsrun -e prepended --smpiargs="-mxm" --nrs ${num_sockets}  --tasks_per_rs ${ranks_per_socket} --cpu_per_rs ${cores_per_socket} \
-#   --gpu_per_rs ${gpus_per_socket} --bind=proportional-packed:${cores_per_rank} -d plane:${ranks_per_socket}  \
-#   ./device-bind.sh ./xlftest ${transfersize}
+  jsrun --stdio_mode=prepend -D CUDA_VISIBLE_DEVICES \
+   --nrs ${num_sockets}  --tasks_per_rs ${ranks_per_socket} --cpu_per_rs ${cores_per_socket} \
+   --gpu_per_rs ${gpus_per_socket} --bind=proportional-packed:${cores_per_rank} -d plane:${ranks_per_socket}  \
+   ./device-bind.sh ./xlftest ${transfersize}
 
 
 
@@ -75,4 +73,4 @@ EOF
 # WSC cluster:
 #bsub -core_isolation y -alloc_flags "gpumps2" <batch.job
 # SUMMIT:
-bsub <batch.job
+bsub < batch.job
