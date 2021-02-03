@@ -1,4 +1,4 @@
-comp=xlf
+comp=pgi
 
 ifeq '${comp}' 'pgi'
 	# PGI compiler

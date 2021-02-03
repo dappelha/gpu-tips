@@ -2,7 +2,7 @@
 # There are 21 (of 22) cores available to the application per socket
 # Each core can go up to smt4
 nodes=1
-gpus_per_socket=3 # number of gpus to use per socket
+gpus_per_socket=2 # number of gpus to use per socket
 ranks_per_gpu=1 # ranks per gpu. If greater than 1, should use mps.
 let ranks_per_socket=$gpus_per_socket*$ranks_per_gpu # needs to be evenly divisible by gpus_per_socket. 
 let cores_per_rank=21/$ranks_per_socket # 21 avail cores divided into the ranks.
@@ -60,10 +60,16 @@ export RANKS_PER_GPU=$ranks_per_gpu
 
 # XLF RUN:
 
-  jsrun --stdio_mode=prepend -D CUDA_VISIBLE_DEVICES \
-   --nrs ${num_sockets}  --tasks_per_rs ${ranks_per_socket} --cpu_per_rs ${cores_per_socket} \
-   --gpu_per_rs ${gpus_per_socket} --bind=proportional-packed:${cores_per_rank} -d plane:${ranks_per_socket}  \
-   ./device-bind.sh ./xlftest ${transfersize}
+#jsrun --stdio_mode=prepend -g 2 -D CUDA_VISIBLE_DEVICES -n 2 -a 2 -c 20 -b packed:10 -d plane:2 ./xlftest
+
+   jsrun --stdio_mode=prepend -D CUDA_VISIBLE_DEVICES \
+    --nrs ${num_sockets}  --tasks_per_rs ${ranks_per_socket} --cpu_per_rs ${cores_per_socket} \
+    --gpu_per_rs ${gpus_per_socket} --bind=proportional-packed:${cores_per_rank} -d plane:${ranks_per_socket}  \
+    ./print-affinity.sh
+
+#./xlftest
+
+#    ./device-bind.sh ./xlftest ${transfersize}
 
 
 
