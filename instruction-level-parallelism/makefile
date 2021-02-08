@@ -6,7 +6,7 @@ ifeq '${comp}' 'pgi'
 	CC=pgcc
 	CUDAFLAGS = -Mcuda=cc70,nordc,maxregcount:64,ptxinfo,lineinfo,cuda10.1,unroll -fast -Mfprelaxed -L/usr/local/cuda/lib64 -lnvToolsExt
 	CUDAFLAGS+= -Minfo=inline,accel -acc	
-	F90FLAGS=-O3 -mp 
+	F90_FLAGS=-gopt -O3 -mp -Minfo
 	LINKFLAGS = -ta=tesla:pinned
 else
 	# xlcuf compiler
