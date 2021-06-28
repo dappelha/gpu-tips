@@ -4,9 +4,10 @@ ifeq '${comp}' 'pgi'
 	# PGI compiler
 	F90=pgf90
 	CC=pgcc
-	CUDAFLAGS = -Mcuda=cc70,nordc,maxregcount:64,ptxinfo,lineinfo,cuda10.1,unroll -fast -Mfprelaxed -L/usr/local/cuda/lib64 -lnvToolsExt
-	CUDAFLAGS+= -Minfo=inline,accel -acc	
-	F90_FLAGS=-gopt -O3 -mp -Minfo
+	#CUDAFLAGS = -Mcuda=cc70,nordc,maxregcount:64,ptxinfo,lineinfo,cuda10.1,unroll -fast -Mfprelaxed -L/usr/local/cuda/lib64 -lnvToolsExt
+	CUDAFLAGS = -Mcuda=cc70,nordc,maxregcount:64,ptxinfo,lineinfo,cuda10.1,nounroll -Mfprelaxed -L/usr/local/cuda/lib64 -lnvToolsExt
+	CUDAFLAGS+= -Minfo=inline,accel -acc=noautopar
+	F90FLAGS=-gopt -mp -Minfo -O1 -Mnounroll -Mnovect
 	LINKFLAGS = -ta=tesla:pinned
 else
 	# xlcuf compiler
