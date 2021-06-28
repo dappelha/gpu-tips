@@ -17,7 +17,7 @@ echo "local_rank = $local_rank, device = $device"
 
 export CUDA_VISIBLE_DEVICES=$device
 
-export CUDA_CACHE_PATH=/dev/shm/$USER/nvcache_$PMIX_RANK
+#export CUDA_CACHE_PATH=/dev/shm/$USER/nvcache_$PMIX_RANK
 
 executable=$1
 
@@ -25,4 +25,4 @@ shift
 
 $executable "$@"
 
-rm -rf /dev/shm/$USER/nvcache_$PMIX_RANK
+#rm -rf /dev/shm/$USER/nvcache_$PMIX_RANK
