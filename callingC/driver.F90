@@ -19,7 +19,7 @@ program main
 
 
   integer :: i,n
-  integer, allocatable :: a(:,:), b(:,:)
+  integer, allocatable, pinned :: a(:,:), b(:,:)
   integer, allocatable, device :: d_a(:,:), d_b(:,:)
 
   integer :: istat, q
@@ -45,8 +45,16 @@ program main
   ! save the default stream
   old_stream = cudaforGetDefaultStream()       ! save the current default stream
 
+  print*, "default stream = ", cudaforGetDefaultStream()
+
+  !$omp parallel do
   do q=1,nstreams
-  !   istat = cudaforSetDefaultStream(streamid(q))   ! Set the default stream to streamid
+     !istat = cudaforSetDefaultStream(streamid(q))   ! Set the default stream to streamid
+     !print*, cudaGetErrorString( cudaGetLastError() )
+     !print*, "default stream = ", cudaforGetDefaultStream()
+     !istat = cudaMemcpyAsync(d_a(1,q),a(1,q),n,streamid(q) )
+     !istat = cudaMemcpyAsync(d_a(1,q),a(1,q),n,cudaforGetDefaultStream() )
+
      ! move data in the default stream (now non-blocking)
      istat = cudaMemCpy(d_a(1,q),a(1,q),n)
      istat = cudaMemCpy(d_b(1,q),b(1,q),n)
@@ -55,7 +63,8 @@ program main
      ! move the data back. a = a+b
      istat = cudaMemCpy(a(1,q),d_a(1,q),n)     
   enddo
-  
+  !$omp end parallel do
+
   istat = cudaDeviceSynchronize()
   istat = cudaforSetDefaultStream(old_stream) ! restore the original default stream
   
