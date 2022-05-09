@@ -1,14 +1,15 @@
-comp=xlf
+comp=pgi
 
 ifeq '${comp}' 'pgi'
 	# PGI compiler
-	F90=pgf90
-	CC=pgcc
-	CUDAFLAGS= -Mcuda=cc60,nordc,maxregcount:64,ptxinfo -fast -Mfprelaxed -L/usr/local/cuda/lib64 -lnvToolsExt
+	F90=nvfortran
+	CC=nvcc
+	#CUDAFLAGS= -Mcuda=cc70,nordc,maxregcount:64,ptxinfo -fast -Mfprelaxed -L/usr/local/cuda/lib64 -lnvToolsExt
+	CUDAFLAGS= -Mcuda=cc70,nordc,maxregcount:64,ptxinfo -fast -Mfprelaxed 
 	#CUDAFLAGS= -Mcuda=cc60,nordc,maxregcount:48,ptxinfo,loadcache:L1 -fast -Mfprelaxed
 	F90FLAGS=-O3 -mp 
 	CUDAFLAGS+= -acc
-	LINKFLAGS = -ta=tesla:pinned
+	LINKFLAGS = -ta=tesla:pinned -lnvhpcwrapnvtx
 else
 	# xlcuf compiler
 	F90=xlf_r
@@ -22,16 +23,13 @@ endif
 
 
 
-build: driver.o nvtx_mod.o
-	${F90} -o ${comp}test driver.o ../nvtx/nvtx_mod.o ${F90FLAGS} ${CUDAFLAGS} ${LINKFLAGS}
+build: driver.o
+	${F90} -o ${comp}test driver.o ${F90FLAGS} ${CUDAFLAGS} ${LINKFLAGS}
 
 
-driver.o: driver.F90 nvtx_mod.o
+driver.o: driver.F90
 	${F90} -c -o driver.o driver.F90 ${F90FLAGS} ${CUDAFLAGS}
 
-nvtx_mod.o: ../nvtx/nvtx_mod.F90
-	${F90} -c -o ../nvtx/nvtx_mod.o ../nvtx/nvtx_mod.F90 ${F90FLAGS} ${CUDAFLAGS}
-
 clean:
-	rm -f ${comp}test *.o *.lst *.mod ../nvtx/*.o
+	rm -f ${comp}test *.o *.lst *.mod
 

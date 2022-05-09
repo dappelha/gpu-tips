@@ -1,7 +1,7 @@
 module basicmovement
 
   use cudafor
-  use nvtx_mod
+  use nvtx
   use omp_lib
 
   integer :: samples =10
@@ -97,7 +97,7 @@ contains
     call nvtxStartRange(str,color)
     t1 = omp_get_wtime()
     do i=1,samples
-       !$acc update self(h_dummy)
+       !$acc update device(h_dummy)
        ierr = cudaDeviceSynchronize()
     enddo
     t2 = omp_get_wtime()
@@ -170,7 +170,7 @@ end module basicmovement
 
 program main
   use cudafor
-  use nvtx_mod
+  use nvtx
   use omp_lib
   use basicmovement
 
