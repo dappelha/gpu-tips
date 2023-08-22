@@ -4,9 +4,9 @@ module basicmovement
   use nvtx
   use omp_lib
 
-  integer :: samples =10
+  integer :: samples =50
   integer, parameter :: gigabyte = 1024*1024*1024/8
-  integer :: N = 8*gigabyte
+  integer :: N = 1*gigabyte
   character(len=30) :: str
   CHARACTER(LEN=*), PARAMETER :: fmt = "(2X, A, T30, G8.3, T40, F8.3 )"
   integer :: color
@@ -90,8 +90,9 @@ contains
     enddo
     call nvtxEndRange
     write(*,fmt) str, T/samples
-  
-    ! OpenACC memcopy
+
+    ! warmup
+    ! OpenACC memcopy 
     str = "acc HtoD"
     color = modulo(color+1,7)
     call nvtxStartRange(str,color)
@@ -104,11 +105,91 @@ contains
     call nvtxEndRange
     write(*,fmt) str, t2-t1, samples*mem/(t2-t1)
 
+    ! OpenACC memcopy
+    str = "acc HtoD"
+    color = modulo(color+1,7)
+    ierr = cudaDeviceSynchronize()
+    call nvtxStartRange(str,color)
+    t1 = omp_get_wtime()
+    do i=1,samples
+       !$acc update device(h_dummy)
+       ierr = cudaDeviceSynchronize()
+    enddo
+    t2 = omp_get_wtime()
+    call nvtxEndRange
+    write(*,fmt) str, t2-t1, samples*mem/(t2-t1)
+
+    
     !$acc exit data delete(h_dummy)
     ierr = cudaDeviceSynchronize()
 #endif
   end subroutine acc_HtoD
 
+  subroutine acc_DtoH(h_dummy,mem)
+
+    implicit none
+
+    real(kind=8), allocatable, intent(inout) :: h_dummy(:)
+    real(kind=8), intent(in) :: mem
+
+    real(kind=8) :: t1, t2, T  
+    integer :: ierr, i
+
+#if defined(__NVCOMPILER)
+
+    str = "acc device allocation"
+    call nvtxStartRange(str)
+    T=0
+    do i = 1, samples
+       if(i .gt. 1) then
+          !$acc exit data delete(h_dummy)
+          ierr = cudaDeviceSynchronize()
+       endif
+       t1 = omp_get_wtime()
+       !$acc enter data create(h_dummy)
+       ierr = cudaDeviceSynchronize()
+       t2 = omp_get_wtime()
+       T = T + (t2-t1)
+    enddo
+    call nvtxEndRange
+    write(*,fmt) str, T/samples
+  
+    ! OpenACC memcopy
+    str = "acc DtoH"
+    color = modulo(color+1,7)
+    ierr = cudaDeviceSynchronize()
+    call nvtxStartRange(str,color)
+    t1 = omp_get_wtime()
+    do i=1,samples
+       !$acc update host(h_dummy)
+       ierr = cudaDeviceSynchronize()
+    enddo
+    t2 = omp_get_wtime()
+    call nvtxEndRange
+    write(*,fmt) str, t2-t1, samples*mem/(t2-t1)
+
+    
+    ! OpenACC memcopy
+    str = "acc DtoH"
+    color = modulo(color+1,7)
+    ierr = cudaDeviceSynchronize()
+    call nvtxStartRange(str,color)
+    t1 = omp_get_wtime()
+    do i=1,samples
+       !$acc update host(h_dummy)
+       ierr = cudaDeviceSynchronize()
+    enddo
+    t2 = omp_get_wtime()
+    call nvtxEndRange
+    write(*,fmt) str, t2-t1, samples*mem/(t2-t1)
+
+    
+    !$acc exit data delete(h_dummy)
+    ierr = cudaDeviceSynchronize()
+#endif
+  end subroutine acc_DtoH
+
+  
 
   subroutine implicitCUDA_HtoD(d_dummy,h_dummy,mem)
     
@@ -242,25 +323,64 @@ program main
   write(*,fmt) str, T/samples
 
 
-  ! REGULAR PAGEABLE MEMORY:
-  write(*,*) "REGULAR PAGEABLE MEMORY:"
-
-  ! Implicit CUDA way
-  call implicitCUDA_HtoD(d_A,A,mem)
+    ! USING PINNED MEMORY
+  write(*,*) "USING PINNED MEMORY"
   
-  ! Another CUDA way
-  call explicitCUDA_HtoD(d_A,A,mem)
+  ! Implicit CUDA way
+  !call implicitCUDA_HtoD(d_A,p_A,mem)
 
+  ! Another CUDA way
+  call explicitCUDA_HtoD(d_A,p_A,mem)
 
   ! USING PINNED MEMORY
   write(*,*) "USING PINNED MEMORY"
   
   ! Implicit CUDA way
-  call implicitCUDA_HtoD(d_A,p_A,mem)
+  !call implicitCUDA_HtoD(d_A,p_A,mem)
 
   ! Another CUDA way
   call explicitCUDA_HtoD(d_A,p_A,mem)
 
+
+  ! REGULAR PAGEABLE MEMORY:
+  write(*,*) "REGULAR PAGEABLE MEMORY:"
+
+  ! Implicit CUDA way
+  !call implicitCUDA_HtoD(d_A,A,mem)
+  
+  ! Another CUDA way
+  call explicitCUDA_HtoD(d_A,A,mem)
+
+  ! REGULAR PAGEABLE MEMORY:
+  write(*,*) "REGULAR PAGEABLE MEMORY:"
+
+  ! Implicit CUDA way
+  !call implicitCUDA_HtoD(d_A,A,mem)
+  
+  ! Another CUDA way
+  call explicitCUDA_HtoD(d_A,A,mem)
+
+  
+
+  ! USING PINNED MEMORY
+  write(*,*) "USING PINNED MEMORY"
+  
+  ! Implicit CUDA way
+  !call implicitCUDA_HtoD(d_A,p_A,mem)
+
+  ! Another CUDA way
+  call explicitCUDA_HtoD(d_A,p_A,mem)
+
+  ! USING PINNED MEMORY
+  write(*,*) "USING PINNED MEMORY"
+  
+  ! Implicit CUDA way
+  !call implicitCUDA_HtoD(d_A,p_A,mem)
+
+  ! Another CUDA way
+  call explicitCUDA_HtoD(d_A,p_A,mem)
+
+  
 
   deallocate(d_A)
   ierr=cudaDeviceSynchronize()
@@ -274,6 +394,7 @@ program main
 
   ! openacc way:
   call acc_HtoD(A,mem)
+  call acc_DtoH(A,mem)
   
   str = "cuda device allocation"
   call nvtxStartRange(str)
@@ -291,7 +412,7 @@ program main
   write(*,fmt) str, T/samples
 
   ! Implicit CUDA way
-  call implicitCUDA_HtoD(d_A,A,mem)
+  !call implicitCUDA_HtoD(d_A,A,mem)
   
   ! Another CUDA way
   call explicitCUDA_HtoD(d_A,A,mem)
@@ -325,7 +446,7 @@ program main
   write(*,fmt) str, T/samples
 
   ! Implicit CUDA way
-  call implicitCUDA_HtoD(d_A,p_A,mem)
+  !call implicitCUDA_HtoD(d_A,p_A,mem)
 
   ! Another CUDA way
   call explicitCUDA_HtoD(d_A,p_A,mem)

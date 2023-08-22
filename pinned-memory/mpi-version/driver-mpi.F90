@@ -1,10 +1,10 @@
 module basicmovement
 
   use cudafor
-  use nvtx_mod
+  use nvtx
   use omp_lib
 
-  integer :: samples =10
+  integer :: samples =50
   integer, parameter :: gigabyte = 1024*1024*1024/8
   integer, parameter :: megabyte = 1024*1024/8
   integer :: N != 8*gigabyte
@@ -119,7 +119,7 @@ contains
     real(kind=8) :: t1, t2, T  
     integer :: ierr, i
 
-#if defined(__PGI)
+#if defined(__NVCOMPILER)
 
     str = "acc device allocation"
     call nvtxStartRange(str)
@@ -144,7 +144,7 @@ contains
     call nvtxStartRange(str,color)
     t1 = omp_get_wtime()
     do i=1,samples
-       !$acc update self(h_dummy)
+       !$acc update device(h_dummy)
        ierr = cudaDeviceSynchronize()
     enddo
     t2 = omp_get_wtime()
@@ -168,7 +168,7 @@ contains
     real(kind=8) :: t1, t2, T  
     integer :: ierr, i
 
-#if defined(__PGI)
+#if defined(__NVCOMPILER)
 
     str = "acc device allocation"
     call nvtxStartRange(str)
@@ -294,7 +294,7 @@ end module basicmovement
 
 program main
   use cudafor
-  use nvtx_mod
+  use nvtx
   use omp_lib
   use basicmovement
 

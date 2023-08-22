@@ -5,11 +5,12 @@ ifeq '${comp}' 'pgi'
 	F90=nvfortran
 	CC=nvcc
 	#CUDAFLAGS= -Mcuda=cc70,nordc,maxregcount:64,ptxinfo -fast -Mfprelaxed -L/usr/local/cuda/lib64 -lnvToolsExt
-	CUDAFLAGS= -Mcuda=cc70,nordc,maxregcount:64,ptxinfo -fast -Mfprelaxed 
+	CUDAFLAGS= -Mcuda=cc80,nordc,maxregcount:64,ptxinfo -fast -Mfprelaxed 
 	#CUDAFLAGS= -Mcuda=cc60,nordc,maxregcount:48,ptxinfo,loadcache:L1 -fast -Mfprelaxed
 	F90FLAGS=-O3 -mp 
 	CUDAFLAGS+= -acc
 	LINKFLAGS = -ta=tesla:pinned -lnvhpcwrapnvtx
+	#LINKFLAGS = -gpu=pinned -lnvhpcwrapnvtx
 else
 	# xlcuf compiler
 	F90=xlf_r
