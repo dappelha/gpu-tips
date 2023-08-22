@@ -19,19 +19,44 @@ contains
 
     integer :: i,j
 
-    !$acc kernels deviceptr(At) present(A)
+    !$acc parallel loop gang vector deviceptr(At) present(A)
     do j=1,ny
        do i=1,nx
-          At(j,i) = A(i,j) ! coallesced read, uncoalesced write
+          At(j,i) = A(i,j) ! uncoallesced read, coalesced write
        enddo
-    enddo
-    !$acc end kernels
+    enddo    
 
     return
 
   end subroutine transpose_zero_copy_DtoH
   
 
+  subroutine transpose_zero_copy_HtoD(A,At,nx,ny) 
+
+    ! example of strided writes to an array that lives on the host
+
+    ! variable declarations
+    implicit none
+
+    ! passed variables
+    integer, intent(in) :: nx, ny
+    real(kind=8), intent(in) :: A(nx,ny)
+    real(kind=8), intent(out) :: At(ny,nx)    
+
+    integer :: i,j
+
+    !$acc parallel loop gang vector deviceptr(A) present(At)
+    do j=1,ny
+       do i=1,nx
+          At(j,i) = A(i,j) ! uncoallesced read, coalesced write
+       enddo
+    enddo    
+
+    return
+
+  end subroutine transpose_zero_copy_HtoD
+
+  
   subroutine transpose(A,At,nx,ny) 
 
     ! example of strided writes to an array on the gpu that then has to be moved
@@ -99,15 +124,15 @@ program main
   print*, "allocating"
 
   
-  allocate( table(12*1024/128,2) )
+  allocate( table(12*1024/128,3) )
   
   open (unit = 22, file = "/dev/stdout")
   write(22,*) "Matrix Transpose Benchmarking"
  
   
-  write(22,"(A,T15,2(2X,A7,I2) )") "R+W Bytes (MB)", ("test",i,i=1,2)
+  write(22,"(A,T15,3(2X,A7,I2) )") "R+W Bytes (MB)", ("test",i,i=1,3)
   ! Total size of the data
-  do n = 256, 4*1024, 128
+  do n = 256, 12*1024, 128
 
      q = q + 1
 
@@ -123,8 +148,8 @@ program main
 
 
      testnum=1
-     ! compute the transpose in the typical way:
      !$acc wait
+     ! compute the transpose in the typical way:
      t1 = omp_get_wtime()
      !$acc enter data create(A,At)
 
@@ -148,7 +173,8 @@ program main
      ierr = acc_clear_freelists()     
 
 
-     testnum=2     
+     testnum=2
+     !$acc wait
      ! do the DtoH zero copy way
      t1 = omp_get_wtime()
      !$acc enter data create(A)
@@ -166,12 +192,33 @@ program main
      t2 = omp_get_wtime()
      T = t2-t1
      table(q,testnum)=2*mem/T
+     
+     ierr = acc_clear_freelists()     
+
+     testnum=3
+     !$acc wait
+     ! do the HtoD zero copy way
+     t1 = omp_get_wtime()
+     !$acc enter data create(At)
+     do i=1, samples        
+        call transpose_zero_copy_HtoD(A,At,nx,ny)
+        !$acc update host(At)
+        ! the above kernel reads from pinned host buffer A (zero copy of A is on the device)
+        !$acc wait
+     enddo
+     !$acc exit data delete(At)
+     !$acc wait
+     
+     t2 = omp_get_wtime()
+     T = t2-t1
+     table(q,testnum)=2*mem/T
 
      deallocate(A,At)
      
      ierr = acc_clear_freelists()     
 
-     write(22,"(f9.4,T15,2(2X,f9.2))") 2*mem*1000, table(q,:)
+     
+     write(22,"(f9.4,T15,3(2X,f9.2))") 2*mem*1000, table(q,:)
      
   enddo
   
